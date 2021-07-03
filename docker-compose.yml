@@ -1,0 +1,48 @@
+version: '3.7'
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: php
+    container_name: api
+    expose:
+      - "9000"
+    ports:
+      - 9000:9000
+    volumes:
+      - ./:/api
+      - /api/vendor
+    networks:
+      - default
+    working_dir: /api/
+
+  nginx:
+    container_name: nginx-api
+    image: nginx:1.16.0
+    ports:
+      - 80:80
+    volumes:
+      - ./.docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./.docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - api
+
+  db-api-after:
+    image: mysql:5.7.22
+    container_name: db-api
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+      - MYSQL_DATABASE=api
+    volumes:
+      - ./.docker/database:/var/lib/mysql
+    command: --innodb-use-native-aio=0
+    ports:
+      - 3306:3306
+    restart: always
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
