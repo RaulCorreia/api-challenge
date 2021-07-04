@@ -2,26 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use App\User;
+use App\Services\AuthService;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
+    protected $authService;
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
 
     public function register(Request $request)
     {
         $validatedData = $this->validate($request, [
-            'name' => ['required', 'min:3'],
+            'name' => ['required', 'min:5'],
             'email' => ['required', 'email', 'unique:users'],
+            'cpf' => ['required_without_all:cnpj', 'size:11', 'unique:users,document'],
+            'cnpj' => ['required_without_all:cpf', 'size:14', 'unique:users,document'],
+            'user_type_id' => ['required', 'exists:user_types,id'],
             'password' => ['required', 'min:6'],
         ]);
-        $validatedData['password'] = bcrypt($validatedData['password']);
 
-        $user = User::create($validatedData);
+        $result = $this->authService->createUser($validatedData);
 
-        $token = $user->createToken('TutsForWeb')->accessToken;
-
-        return response()->json(['token' => $token], 200);
+        return response()->json([$result['content']], $result['code']);
     }
 
 
@@ -34,7 +40,8 @@ class AuthController extends Controller
 
         if (auth()->attempt($credentials)) {
             $token = auth()->user()->createToken('authApi')->accessToken;
-            return response()->json(['token' => $token], 200);
+            $result = formatResponse(['token' => $token], 200, true);
+            return response()->json($result['content'], $result['code']);
         } else {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
