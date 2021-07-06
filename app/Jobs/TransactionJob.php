@@ -3,6 +3,10 @@
 namespace App\Jobs;
 
 use App\Models\Transaction;
+use App\Notifications\ReceiverTransaction;
+use App\Notifications\SendTransactionSuccess;
+use App\Notifications\TransactionFail;
+use App\User;
 use GuzzleHttp\Client;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,7 +14,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class TransactionJob implements ShouldQueue
 {
@@ -41,24 +44,26 @@ class TransactionJob implements ShouldQueue
             $client = app(Client::class);
 
             $response = $client->get("https://run.mocky.io/v3/8fafdd68-a090-496f-8c9a-3442cf30dae6");
-            $authorization = $response->getBody()->getContents();
+            $authorization = json_decode($response->getBody()->getContents());
 
-            if ($authorization !== Transaction::AUTHORIZED) {
+            if ($authorization->message !== Transaction::AUTHORIZED) {
                 throw new \Exception('Unauthorized transaction');
+            } else {
+                info($authorization->message);
             }
 
-            Transaction::create($this->data);
+            $transaction = Transaction::create($this->data);
 
             DB::commit();
-            // Envia email informando a transação
-            //return formatResponse('Transfer successful', 200, true);
+
+            $transaction->sender->notify(new SendTransactionSuccess($transaction));
+            $transaction->receiver->notify(new ReceiverTransaction($transaction));
         } catch (\Exception $e) {
             DB::rollBack();
             info($e);
-            // Envia email informando o erro
 
-            // or transaction is unauthorized
-            //return formatResponse('Something was wrong, contact the support', 500, false);
+            $userFrom = User::find($this->data['user_id_from']);
+            $userFrom->notify(new TransactionFail($userFrom));
         }
     }
 }

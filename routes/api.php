@@ -19,5 +19,4 @@ Route::post('/register', 'AuthController@register');
 
 Route::group(['middleware' => 'auth:api'], function(){
     Route::post('/transfer', 'TransactionController@transfer');
-    //Route::post('/transfer', 'TransactionController@transfer');
 });
