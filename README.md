@@ -15,9 +15,9 @@ Este é um projeto que simula um sistema de transferências simples. Nele é pos
 
 ## :man_technologist: Utilização
 
-Apos a criação do usuario é possivel obter um token para acesso ou apos realizar login.
+Apos a criação do usuario é possivel obter um token para acesso ou após realizar login.
 
-### Cria um usuário
+### Usuário
 `POST /api/register`
 ```
 {
