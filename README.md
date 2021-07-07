@@ -5,11 +5,11 @@ Este é um projeto que simula um sistema de transferências simples. Nele é pos
 ## :gear: Requisitos & Instalação
 
 - Ter o docker instalado
-- Rodar o comando
+- Rodar o comando  
   `docker-compose up -d`
-- Acesar o bash do docker e rodar os comandos
-  `php artisan migrate`
-  `php artisan passport:install`
+- Acesar o bash do docker e rodar os comandos  
+  `php artisan migrate`  
+  `php artisan passport:install`  
   `php artisan db:seed`
 
 
@@ -22,18 +22,18 @@ Apos a criação do usuario é possivel obter um token para acesso ou apos reali
 ```
 {
     "name": "Foo Bar",
-	"email": "foo@bar.com",
-	"password": "foobar",
-	"cnpj" ou "cpf": "47285749000178" // Apenas digitos
-	"user_type_id": 1 //Baseado no id criado apos o seed
+    "email": "foo@bar.com",
+    "password": "foobar",
+    "cnpj" ou "cpf": "47285749000178" // Apenas digitos
+    "user_type_id": 1 //Baseado no id criado apos o seed
 }
 ```
 
 `POST /api/login`
 ```
 {
-	"email": "foo@bar.com",
-	"password": "foobar"
+    "email": "foo@bar.com",
+    "password": "foobar"
 }
 ```
 
@@ -41,8 +41,8 @@ Apos a criação do usuario é possivel obter um token para acesso ou apos reali
 `POST /api/transfer`
 ```
 {
-	"user_id_to": 21, // Usuario de destino na transferência
-	"amount": 10.00 // Valor a ser transferido
+    "user_id_to": 21, // Usuario de destino na transferência
+    "amount": 10.00 // Valor a ser transferido
 }
 ```
 
