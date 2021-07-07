@@ -28,7 +28,7 @@ services:
     depends_on:
       - api
 
-  db-api-after:
+  db-api:
     image: mysql:5.7.22
     container_name: db-api
     environment:
@@ -42,6 +42,12 @@ services:
     restart: always
     networks:
       - default
+
+  redis:
+    image: redis
+    container_name: redis-api
+    ports:
+      - 6379:6379
 
 networks:
   default:

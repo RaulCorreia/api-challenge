@@ -5,6 +5,8 @@ Este é um projeto que simula um sistema de transferências simples. Nele é pos
 ## :gear: Requisitos & Instalação
 
 - Ter o docker instalado
+- Criar .env baseado no .env.example
+- Configurar o .env baseado nas suas preferências como filas sync ou redis
 - Rodar o comando  
   `docker-compose up -d`
 - Acesar o bash do docker e rodar os comandos  
@@ -47,6 +49,7 @@ Apos a criação do usuario é possivel obter um token para acesso ou após real
 ```
 
 ## :hammer_and_wrench: Ferramentas utilizadas
+- Docker
 - Laravel 7.3
 - PHP 7.3
-- Docker
+- Redis
