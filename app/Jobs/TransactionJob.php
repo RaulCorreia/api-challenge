@@ -48,8 +48,6 @@ class TransactionJob implements ShouldQueue
 
             if ($authorization->message !== Transaction::AUTHORIZED) {
                 throw new \Exception('Unauthorized transaction');
-            } else {
-                info($authorization->message);
             }
 
             $transaction = Transaction::create($this->data);

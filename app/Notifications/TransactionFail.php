@@ -2,14 +2,13 @@
 
 namespace App\Notifications;
 
-use App\Models\Transaction;
 use App\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class TransactionFail extends Notification
+class TransactionFail extends Notification implements ShouldQueue
 {
     use Queueable;
 

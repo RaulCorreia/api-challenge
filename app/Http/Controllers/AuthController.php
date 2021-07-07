@@ -43,7 +43,8 @@ class AuthController extends Controller
             $result = formatResponse(['token' => $token], 200, true);
             return response()->json($result['content'], $result['code']);
         } else {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            $result = formatResponse('Unauthorized', 401, false);
+            return response()->json($result['content'], $result['code']);
         }
     }
 }

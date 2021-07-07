@@ -6,9 +6,7 @@ namespace App\Services;
 use App\Jobs\TransactionJob;
 use App\Models\Transaction;
 use App\Models\UserType;
-use App\Models\Wallet;
 use App\User;
-use Illuminate\Support\Facades\DB;
 
 class TransactionService
 {

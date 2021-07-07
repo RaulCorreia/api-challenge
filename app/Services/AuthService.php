@@ -36,7 +36,7 @@ class AuthService
 
             return formatResponse(
                 ['token' => $user->createToken('authApi')->accessToken],
-                200,
+                201,
                 true
             );
 
