@@ -1,55 +1,101 @@
 <?php
 
-/*
-|--------------------------------------------------------------------------
-| Create The Application
-|--------------------------------------------------------------------------
-|
-| The first thing we will do is create a new Laravel application instance
-| which serves as the "glue" for all the components of Laravel, and is
-| the IoC container for the system binding all of the various parts.
-|
-*/
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Validation\ValidationException;
+use App\Domain\Transaction\Exceptions\InsufficientFundsException;
+use App\Domain\Transaction\Exceptions\ShopUserCannotTransferException;
+use App\Domain\Transaction\Exceptions\UnauthorizedTransactionException;
 
-$app = new Illuminate\Foundation\Application(
-    $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
-);
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        api: __DIR__ . '/../routes/api.php',
+        apiPrefix: 'api',
+        commands: __DIR__ . '/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->statefulApi();
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
 
-/*
-|--------------------------------------------------------------------------
-| Bind Important Interfaces
-|--------------------------------------------------------------------------
-|
-| Next, we need to bind some important interfaces into the container so
-| we will be able to resolve them when needed. The kernels serve the
-| incoming requests to this application from both the web and CLI.
-|
-*/
+        // Always respond with JSON for API requests
+        $exceptions->shouldRenderJsonWhen(
+            fn ($request) => $request->is('api/*') || $request->wantsJson()
+        );
 
-$app->singleton(
-    Illuminate\Contracts\Http\Kernel::class,
-    App\Http\Kernel::class
-);
+        // 422 – business rule: insufficient funds
+        $exceptions->render(function (InsufficientFundsException $e, $request) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data'    => null,
+                'meta'    => ['timestamp' => now()->toISOString()],
+            ], 422);
+        });
 
-$app->singleton(
-    Illuminate\Contracts\Console\Kernel::class,
-    App\Console\Kernel::class
-);
+        // 403 – shop users cannot initiate transfers
+        $exceptions->render(function (ShopUserCannotTransferException $e, $request) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data'    => null,
+                'meta'    => ['timestamp' => now()->toISOString()],
+            ], 403);
+        });
 
-$app->singleton(
-    Illuminate\Contracts\Debug\ExceptionHandler::class,
-    App\Exceptions\Handler::class
-);
+        // 403 – external authorizer denied the transaction
+        $exceptions->render(function (UnauthorizedTransactionException $e, $request) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data'    => null,
+                'meta'    => ['timestamp' => now()->toISOString()],
+            ], 403);
+        });
 
-/*
-|--------------------------------------------------------------------------
-| Return The Application
-|--------------------------------------------------------------------------
-|
-| This script returns the application instance. The instance is given to
-| the calling script so we can separate the building of the instances
-| from the actual running of the application and sending responses.
-|
-*/
+        // 422 – validation errors
+        $exceptions->render(function (ValidationException $e, $request) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The given data was invalid.',
+                'errors'  => $e->errors(),
+                'meta'    => ['timestamp' => now()->toISOString()],
+            ], 422);
+        });
 
-return $app;
+        // 401 – unauthenticated
+        $exceptions->render(function (AuthenticationException $e, $request) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.',
+                'data'    => null,
+                'meta'    => ['timestamp' => now()->toISOString()],
+            ], 401);
+        });
+
+        // 404 – model not found
+        $exceptions->render(function (ModelNotFoundException $e, $request) {
+            $model = class_basename($e->getModel());
+            return response()->json([
+                'success' => false,
+                'message' => "{$model} not found.",
+                'data'    => null,
+                'meta'    => ['timestamp' => now()->toISOString()],
+            ], 404);
+        });
+
+        // 500 – unhandled exception (never leaks stacktrace in production)
+        $exceptions->render(function (\Throwable $e, $request) {
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred. Please try again later.',
+                'data'    => config('app.debug') ? ['trace' => $e->getTraceAsString()] : null,
+                'meta'    => ['timestamp' => now()->toISOString()],
+            ], 500);
+        });
+    })
+    ->create();
