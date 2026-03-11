@@ -1,6 +1,7 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Presentation\Http\Controllers\AuthController;
+use App\Presentation\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -14,9 +15,12 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::post('/login', 'AuthController@login');
-Route::post('/register', 'AuthController@register');
+// Public routes
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login',    [AuthController::class, 'login']);
 
-Route::group(['middleware' => 'auth:api'], function(){
-    Route::post('/transfer', 'TransactionController@transfer');
+// Authenticated routes
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::post('/logout',   [AuthController::class,     'logout']);
+    Route::post('/transfer', [TransactionController::class, 'transfer']);
 });
