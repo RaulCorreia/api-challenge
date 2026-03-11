@@ -2,145 +2,118 @@
 
 namespace Tests\Feature;
 
-use App\Models\UserType;
-use App\Models\Wallet;
-use App\User;
+use App\Infrastructure\Persistence\Models\UserModel;
+use App\Infrastructure\Persistence\Models\WalletModel;
+use Database\Seeders\UserTypeSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Queue;
+use App\Infrastructure\Queue\Jobs\ProcessTransferJob;
 use Tests\TestCase;
 
 class TransferTest extends TestCase
 {
     use DatabaseTransactions;
-    use WithFaker;
 
-    private $userStandart;
-    private $walletStandart;
-    private $userShop;
-    private $walletShop;
+    private UserModel  $standardUser;
+    private WalletModel $standardWallet;
+    private UserModel  $shopUser;
+    private WalletModel $shopWallet;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
-        $this->setUpFaker();
+        $this->seed(UserTypeSeeder::class);
 
-        $userTypes = UserType::get();
-        $this->userStandart = factory(User::class)->create([
-            'user_type_id' => $userTypes->where('name', UserType::STANDART_USER)->first()->id
-        ]);
-        $this->walletStandart = factory(Wallet::class)->create([
-            'user_id' => $this->userStandart->id,
-            'total' => 15.00
+        $this->standardUser   = UserModel::factory()->standard()->create();
+        $this->standardWallet = WalletModel::factory()->withBalance(100.00)->create([
+            'user_id' => $this->standardUser->id,
         ]);
 
-        $this->userShop = factory(User::class)->create([
-            'user_type_id' => $userTypes->where('name', UserType::SHOP_USER)->first()->id
+        $this->shopUser   = UserModel::factory()->shop()->create();
+        $this->shopWallet = WalletModel::factory()->withBalance(50.00)->create([
+            'user_id' => $this->shopUser->id,
         ]);
-        $this->walletShop = factory(Wallet::class)->create([
-            'user_id' => $this->userShop->id,
-            'total' => 10.00
-        ]);
-
     }
 
-    /**
-     *
-     */
-    public function testShouldTransfer(): void
+    public function test_standard_user_can_initiate_a_transfer(): void
     {
-        $token = $this->getToken($this->userStandart);
-        $data = [
-            'user_id_to' => $this->userShop->id,
-            'amount' => 5.00,
-        ];
+        Queue::fake();
 
-        $response = $this->postJson('api/transfer', $data, ['Authorization' => "Bearer {$token}"])
-            ->assertStatus(200)
-            ->assertJsonStructure([[
-                'message',
-                'success'
-            ]])->decodeResponseJson();
+        $token = $this->getToken($this->standardUser);
 
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/transfer', [
+                'user_id_to' => $this->shopUser->id,
+                'amount'     => 30.00,
+            ]);
 
-        $this->walletStandart->refresh();
-        $this->walletShop->refresh();
+        $response->assertStatus(202)
+            ->assertJsonStructure(['success', 'message', 'meta'])
+            ->assertJson(['success' => true]);
 
-        $this->assertEquals('Transfer in progress', $response[0]['message']);
-        $this->assertTrue($response[0]['success']);
-
-        $this->assertEquals(10.00, $this->walletStandart->total);
-        $this->assertEquals(15.00, $this->walletShop->total);
+        Queue::assertPushedOn('transactions', ProcessTransferJob::class);
     }
 
-    /**
-     *
-     */
-    public function testShouldNotTransferByShop(): void
+    public function test_shop_user_cannot_initiate_a_transfer(): void
     {
-        $token = $this->getToken($this->userShop);
-        $data = [
-            'user_id_to' => $this->userStandart->id,
-            'amount' => 5.00,
-        ];
+        $token = $this->getToken($this->shopUser);
 
-        $response = $this->postJson('api/transfer', $data, ['Authorization' => "Bearer {$token}"])
-            ->assertStatus(200)
-            ->assertJsonStructure([[
-                'message',
-                'success'
-            ]])
-            ->decodeResponseJson();
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/transfer', [
+                'user_id_to' => $this->standardUser->id,
+                'amount'     => 10.00,
+            ]);
 
-        $this->walletStandart->refresh();
-        $this->walletShop->refresh();
-
-        $this->assertEquals('Unable to perform this transaction', $response[0]['message']);
-        $this->assertFalse($response[0]['success']);
-
-        $this->assertEquals(15.00, $this->walletStandart->total);
-        $this->assertEquals(10.00, $this->walletShop->total);
+        $response->assertStatus(403)
+            ->assertJson(['success' => false]);
     }
 
-    /**
-     *
-     */
-    public function testShouldNotTransferByBalance(): void
+    public function test_transfer_fails_when_balance_is_insufficient(): void
     {
-        $token = $this->getToken($this->userShop);
-        $data = [
-            'user_id_to' => $this->userStandart->id,
-            'amount' => 25.00,
-        ];
+        $token = $this->getToken($this->standardUser);
 
-        $response = $this->postJson('api/transfer', $data, ['Authorization' => "Bearer {$token}"])
-            ->assertStatus(200)
-            ->assertJsonStructure([[
-                'message',
-                'success'
-            ]])
-            ->decodeResponseJson();
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/transfer', [
+                'user_id_to' => $this->shopUser->id,
+                'amount'     => 9999.00,
+            ]);
 
-        $this->walletStandart->refresh();
-        $this->walletShop->refresh();
-
-        $this->assertEquals("You don't have enough balance", $response[0]['message']);
-        $this->assertFalse($response[0]['success']);
-
-        $this->assertEquals(15.00, $this->walletStandart->total);
-        $this->assertEquals(10.00, $this->walletShop->total);
+        $response->assertStatus(422)
+            ->assertJson(['success' => false]);
     }
 
-    private function getToken($user): string
+    public function test_transfer_requires_authentication(): void
     {
-        $data = [
-            'email' => $user->email,
-            'password' => 'password',
-        ];
+        $this->postJson('/api/transfer', [
+            'user_id_to' => $this->shopUser->id,
+            'amount'     => 10.00,
+        ])->assertStatus(401);
+    }
 
-        $response = $this->postJson('api/login', $data);
-        $response = json_decode($response->getContent());
+    public function test_transfer_validates_required_fields(): void
+    {
+        $token = $this->getToken($this->standardUser);
 
-        return $response->message->token;
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/transfer', [])
+            ->assertStatus(422)
+            ->assertJsonStructure(['success', 'errors']);
+    }
+
+    public function test_user_cannot_transfer_to_themselves(): void
+    {
+        $token = $this->getToken($this->standardUser);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/transfer', [
+                'user_id_to' => $this->standardUser->id,
+                'amount'     => 10.00,
+            ])
+            ->assertStatus(422);
+    }
+
+    private function getToken(UserModel $user): string
+    {
+        return $user->createToken('test-token')->plainTextToken;
     }
 }

@@ -2,127 +2,106 @@
 
 namespace Tests\Feature;
 
-use App\User;
+use App\Infrastructure\Persistence\Models\UserModel;
+use App\Infrastructure\Persistence\Models\UserTypeModel;
+use Database\Seeders\UserTypeSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
 {
     use DatabaseTransactions;
-    use WithFaker;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
-        $this->setUpFaker();
+        $this->seed(UserTypeSeeder::class);
     }
 
-    /**
-     *
-     */
-    public function testShouldCreateUser(): void
+    public function test_user_can_register_with_cpf(): void
     {
         $data = [
-            'name' => $this->faker->name,
-            'email' => $this->faker->email,
-            'password' => $this->faker->password,
-            'cpf' => '12345678912',
-            'user_type_id' => $this->faker->numberBetween(1, 2)
+            'name'         => 'John Doe Test',
+            'email'        => 'john.doe.test@example.com',
+            'password'     => 'secret123',
+            'cpf'          => '12345678901',
+            'user_type_id' => UserTypeModel::where('name', 'standart')->value('id'),
         ];
 
-        $this->postJson('api/register', $data)
-            ->assertStatus(201)
-            ->assertJsonStructure([[
-                'message' => [
-                    'token'
-                ],
-                'success'
-            ]]);
+        $response = $this->postJson('/api/register', $data);
 
-        $users = User::where('email', $data['email'])->get();
-        $user = $users->first();
-
-        $this->assertCount(1, $users);
-        $this->assertEquals($data['name'], $user->name);
-        $this->assertEquals($data['cpf'], $user->document);
-    }
-
-    /**
-     *
-     */
-    public function testShouldNotCreateUserByDuplicated(): void
-    {
-        $userAlreadyCreated = factory(User::class)->create();
-
-        $data = [
-            'name' => 'Foo bar',
-            'email' => $userAlreadyCreated->email,
-            'password' => $this->faker->password,
-            'cpf' => $userAlreadyCreated->document,
-            'user_type_id' => $this->faker->numberBetween(1, 2)
-        ];
-
-        $response = $this->postJson('api/register', $data)
-            ->assertStatus(422)
+        $response->assertStatus(201)
             ->assertJsonStructure([
+                'success',
                 'message',
-                'errors'
+                'data' => ['token', 'user' => ['id', 'name', 'email']],
+                'meta' => ['timestamp'],
             ]);
 
-        $response = json_decode($response->getContent());
-
-        $this->assertEquals('The given data was invalid.', $response->message);
-        $this->assertTrue(array_key_exists('email', $response->errors));
-        $this->assertTrue(array_key_exists('cpf', $response->errors));
-        $this->assertEquals('The email has already been taken.', $response->errors->email[0]);
-        $this->assertEquals('The cpf has already been taken.', $response->errors->cpf[0]);
+        $this->assertDatabaseHas('users', ['email' => $data['email']]);
+        $this->assertDatabaseHas('wallets', ['user_id' => $response->json('data.user.id')]);
     }
 
-    /**
-     *
-     */
-    public function testShouldLogin(): void
+    public function test_registration_fails_with_duplicate_email_or_document(): void
     {
-        $user = factory(User::class)->create();
+        $existing = UserModel::factory()->create();
 
         $data = [
-            'email' => $user->email,
+            'name'         => 'Duplicate User',
+            'email'        => $existing->email,
+            'password'     => 'secret123',
+            'cpf'          => $existing->document,
+            'user_type_id' => $existing->user_type_id,
+        ];
+
+        $response = $this->postJson('/api/register', $data);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure(['success', 'message', 'errors'])
+            ->assertJson(['success' => false]);
+
+        $this->assertArrayHasKey('email',    $response->json('errors'));
+        $this->assertArrayHasKey('cpf',      $response->json('errors'));
+    }
+
+    public function test_user_can_login_with_valid_credentials(): void
+    {
+        $user = UserModel::factory()->create(['password' => 'password']);
+
+        $response = $this->postJson('/api/login', [
+            'email'    => $user->email,
             'password' => 'password',
-        ];
+        ]);
 
-        $response = $this->postJson('api/login', $data)
-            ->assertStatus(200)
+        $response->assertStatus(200)
             ->assertJsonStructure([
-                'message' => [
-                    'token'
-                ],
-                'success'
-            ]);
-
-        $response = json_decode($response->getContent());
-        $this->assertTrue($response->success);
+                'success',
+                'data' => ['token', 'user'],
+                'meta' => ['timestamp'],
+            ])
+            ->assertJson(['success' => true]);
     }
 
-    public function testShouldNotLogin(): void
+    public function test_login_fails_with_wrong_password(): void
     {
-        $user = factory(User::class)->create();
+        $user = UserModel::factory()->create();
 
-        $data = [
-            'email' => $user->email,
-            'password' => '123456',
-        ];
+        $response = $this->postJson('/api/login', [
+            'email'    => $user->email,
+            'password' => 'wrongpassword',
+        ]);
 
-        $response = $this->postJson('api/login', $data)
-            ->assertStatus(401)
-            ->assertJsonStructure([
-                'message',
-                'success'
-            ]);
+        $response->assertStatus(401)
+            ->assertJson(['success' => false]);
+    }
 
-        $response = json_decode($response->getContent());
-        $this->assertEquals('Unauthorized', $response->message);
-        $this->assertFalse($response->success);
+    public function test_authenticated_user_can_logout(): void
+    {
+        $user  = UserModel::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/logout')
+            ->assertStatus(204);
     }
 }
