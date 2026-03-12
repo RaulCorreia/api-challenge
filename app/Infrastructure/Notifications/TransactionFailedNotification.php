@@ -2,7 +2,6 @@
 
 namespace App\Infrastructure\Notifications;
 
-use App\Infrastructure\Persistence\Models\UserModel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -13,7 +12,7 @@ class TransactionFailedNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        private readonly UserModel $user
+        private readonly string $senderName
     ) {}
 
     public function via(object $notifiable): array
@@ -25,7 +24,7 @@ class TransactionFailedNotification extends Notification implements ShouldQueue
     {
         return (new MailMessage())
             ->subject('Your transfer could not be completed')
-            ->greeting("Hello, {$this->user->name}!")
+            ->greeting("Hello, {$this->senderName}!")
             ->line('Unfortunately, your transfer failed to process.')
             ->line('No amount was deducted from your account.')
             ->line('If you believe this is an error, please contact our support team.')

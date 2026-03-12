@@ -4,6 +4,7 @@ namespace App\Infrastructure\Persistence\Models;
 
 use App\Domain\Transaction\Enums\TransactionType;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TransactionModel extends Model
 {
@@ -22,14 +23,13 @@ class TransactionModel extends Model
         'transaction_type' => TransactionType::class,
     ];
 
-    public function sender(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function sender(): BelongsTo
     {
         return $this->belongsTo(UserModel::class, 'user_id_from');
     }
 
-    public function receiver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function receiver(): BelongsTo
     {
         return $this->belongsTo(UserModel::class, 'user_id_to');
     }
 }
-

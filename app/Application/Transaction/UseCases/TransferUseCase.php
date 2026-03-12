@@ -2,9 +2,7 @@
 
 namespace App\Application\Transaction\UseCases;
 
-use App\Application\Transaction\Contracts\AuthorizerServiceInterface;
 use App\Application\Transaction\DTOs\TransferInputDTO;
-use App\Domain\Transaction\Contracts\TransactionRepositoryInterface;
 use App\Domain\Transaction\Entities\Transaction as TransactionEntity;
 use App\Domain\Transaction\Enums\TransactionType;
 use App\Domain\Transaction\Exceptions\InsufficientFundsException;
@@ -15,15 +13,12 @@ use App\Domain\User\Contracts\WalletRepositoryInterface;
 use App\Domain\User\Enums\UserRole;
 use App\Infrastructure\Queue\Jobs\ProcessTransferJob;
 use DateTimeImmutable;
-use Illuminate\Support\Facades\DB;
 
 class TransferUseCase
 {
     public function __construct(
-        private readonly UserRepositoryInterface        $userRepository,
-        private readonly WalletRepositoryInterface      $walletRepository,
-        private readonly TransactionRepositoryInterface $transactionRepository,
-        private readonly AuthorizerServiceInterface     $authorizer,
+        private readonly UserRepositoryInterface   $userRepository,
+        private readonly WalletRepositoryInterface $walletRepository,
     ) {}
 
     public function execute(TransferInputDTO $dto): TransactionEntity

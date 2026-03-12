@@ -2,10 +2,8 @@
 
 namespace Tests\Unit\Domain;
 
-use App\Application\Transaction\Contracts\AuthorizerServiceInterface;
 use App\Application\Transaction\DTOs\TransferInputDTO;
 use App\Application\Transaction\UseCases\TransferUseCase;
-use App\Domain\Transaction\Contracts\TransactionRepositoryInterface;
 use App\Domain\Transaction\Entities\Transaction as TransactionEntity;
 use App\Domain\Transaction\Enums\TransactionType;
 use App\Domain\Transaction\Exceptions\InsufficientFundsException;
@@ -13,36 +11,26 @@ use App\Domain\Transaction\Exceptions\ShopUserCannotTransferException;
 use App\Domain\Transaction\ValueObjects\Money;
 use App\Domain\User\Contracts\UserRepositoryInterface;
 use App\Domain\User\Contracts\WalletRepositoryInterface;
-use DateTimeImmutable;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\MockObject\MockObject;
 use Tests\TestCase;
 
 class TransferUseCaseTest extends TestCase
 {
-    use RefreshDatabase;
-
     private MockObject $userRepository;
     private MockObject $walletRepository;
-    private MockObject $transactionRepository;
-    private MockObject $authorizer;
     private TransferUseCase $useCase;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->userRepository        = $this->createMock(UserRepositoryInterface::class);
-        $this->walletRepository      = $this->createMock(WalletRepositoryInterface::class);
-        $this->transactionRepository = $this->createMock(TransactionRepositoryInterface::class);
-        $this->authorizer            = $this->createMock(AuthorizerServiceInterface::class);
+        $this->userRepository   = $this->createMock(UserRepositoryInterface::class);
+        $this->walletRepository = $this->createMock(WalletRepositoryInterface::class);
 
         $this->useCase = new TransferUseCase(
             $this->userRepository,
             $this->walletRepository,
-            $this->transactionRepository,
-            $this->authorizer,
         );
     }
 

@@ -79,7 +79,7 @@ class ProcessTransferJob implements ShouldQueue
 
         if ($sender) {
             $sender->notify(
-                (new TransactionFailedNotification($sender))->onQueue('notifications')
+                (new TransactionFailedNotification($sender->name))->onQueue('notifications')
             );
         }
     }

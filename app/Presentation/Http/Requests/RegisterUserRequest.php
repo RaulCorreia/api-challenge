@@ -4,7 +4,6 @@ namespace App\Presentation\Http\Requests;
 
 use App\Domain\User\Enums\DocumentType;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class RegisterUserRequest extends FormRequest
 {

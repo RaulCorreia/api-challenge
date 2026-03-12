@@ -2,7 +2,9 @@
 
 namespace App\Application\User\UseCases;
 
+use App\Infrastructure\Persistence\Models\UserModel;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Auth\AuthenticationException;
 
 class AuthenticateUserUseCase
 {
@@ -10,15 +12,15 @@ class AuthenticateUserUseCase
      * Attempt to authenticate the user and return a Sanctum token.
      *
      * @return array{token: string, user: object}
-     * @throws \Illuminate\Validation\UnauthorizedException
+     * @throws AuthenticationException
      */
     public function execute(string $email, string $password): array
     {
         if (! Auth::attempt(['email' => $email, 'password' => $password])) {
-            throw new \Illuminate\Auth\AuthenticationException('Invalid credentials.');
+            throw new AuthenticationException('Invalid credentials.');
         }
 
-        /** @var \App\Infrastructure\Persistence\Models\UserModel $user */
+        /** @var UserModel $user */
         $user  = Auth::user();
         $token = $user->createToken('auth-token')->plainTextToken;
 

@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Persistence\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UserTypeModel extends Model
 {
@@ -10,7 +11,7 @@ class UserTypeModel extends Model
 
     protected $fillable = ['name'];
 
-    public function users(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function users(): HasMany
     {
         return $this->hasMany(UserModel::class, 'user_type_id');
     }
